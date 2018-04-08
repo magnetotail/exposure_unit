@@ -41,14 +41,16 @@ enum menu_entry_name {
 
 class menu_entry {
   private: menu_entry_name name;
-    char *title;
+  char *title;
+  boolean (*callback)();
 
   public:
     menu_entry() {}
 
-    menu_entry(menu_entry_name name, char *title) {
+    menu_entry(menu_entry_name name, char *title, void (*callback)()) {
       this->name = name;
       this->title = title;
+      this->callback = callback;
     }
 
     boolean is_equal(menu_entry other) {
@@ -61,6 +63,10 @@ class menu_entry {
 
     char* get_title() {
       return this->title;
+    }
+
+    boolean activate(){
+      return callback();
     }
 
 };
@@ -93,13 +99,15 @@ long debounce = 200;   // the debounce time, increase if the output flickers
 
 int *pressed_button;
 
+void nop(){}
+
 void setup() {
   // set up the LCD's number of columns and rows:
   lcd.begin(16, 2);
-  menu_entries[ENTRY_LIGHT_LENGTH] = new menu_entry(light_length, "Dauer");
-  menu_entries[ENTRY_BEEPER] = new menu_entry(beeper, "Piepser");
-  menu_entries[ENTRY_STATUS_BLINK_LENGTH] = new menu_entry(status_blink_length, "Blinkdauer");
-  menu_entries[ENTRY_START] = new menu_entry(start, "Starten");
+  menu_entries[ENTRY_LIGHT_LENGTH] = new menu_entry(light_length, "Dauer", &nop);
+  menu_entries[ENTRY_BEEPER] = new menu_entry(beeper, "Piepser", &nop);
+  menu_entries[ENTRY_STATUS_BLINK_LENGTH] = new menu_entry(status_blink_length, "Blinkdauer", &nop);
+  menu_entries[ENTRY_START] = new menu_entry(start, "Starten", &handle_start);
   pinMode(btn_up, INPUT);
   pinMode(btn_down, INPUT);
   pinMode(btn_cancel, INPUT);
@@ -131,18 +139,33 @@ void open_entry(){
   while(true){
     read_btns();
     if(btn_pressed[3]){
-      update_display(up, ">>>");
       break;
-    }else{
-      handle_entry();    
+    }else if(btn_pressed[2]){
+      if(handle_entry()){
+        break;
+      }
     }
   }
+  update_display(up, ">>>");
 }
 
-void handle_entry(){
-  switch(current_entry){
-    
+void handle_start(){
+  digitalWrite(led_pin, HIGH);
+  
+  for(int i = 0; i < 20; i++){
+    lcd.clear();
+    lcd.print(i);
+    delay(200);
+    //todo: check if lid is closed, and stop the light if it gets opened  
   }
+  digitalWrite(led_pin, LOW);
+  return true;
+ 
+}
+
+//returns true if the menu should be closed afterwards
+boolean handle_entry(){
+  return menu_entries[current_entry]->activate();
 }
 
 void read_btns(){
